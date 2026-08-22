@@ -1,0 +1,8 @@
+//
+// $mint fmt .
+//
+.{
+    .width = 65, // print width
+    .indent = 4, // indentation size
+    .ignore = .{},
+}
