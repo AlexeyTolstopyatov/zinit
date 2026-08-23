@@ -51,6 +51,7 @@ Directory layout:
         root.zig
     build.zig
     builf.zig.zon
+```
 
 Also the `main.zig` layout looks like
 
@@ -75,7 +76,8 @@ The `.zon` files magic word is a question character (a.k.a. `?`).
 It will be replaced by `project_name` too.
 
 build.zig.zon layout:
-```zon
+
+```zig
 .{
     .name = .?,
     .paths = .{
