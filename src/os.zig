@@ -21,7 +21,7 @@ const HWND = @import("std").os.windows.HWND;
 pub fn enableAssoc(ctx: *AppContext) !void {
     switch (core.os.tag) {
         .windows => try setPath(ctx),
-        .linux => try setSymlink(ctx),
+        .linux, .macos => try setSymlink(ctx),
         else => return ExecError.OSNotSupported,
     }
 
@@ -41,6 +41,7 @@ pub fn enableAssoc(ctx: *AppContext) !void {
 pub fn disableAssoc(ctx: *AppContext) !void {
     switch (core.os.tag) {
         .windows => try resetPath(ctx),
+        .linux, .macos => try removeSymlink(ctx),
         else => return ExecError.OSNotSupported,
     }
 }
@@ -49,7 +50,7 @@ pub fn disableAssoc(ctx: *AppContext) !void {
 /// [Windows]
 /// Updates a Win32 exvironment variable %PATH%
 ///
-pub fn setPath(ctx: *AppContext) !void {
+fn setPath(ctx: *AppContext) !void {
     const alloc = ctx.alloc;
     const target = try std.process.executableDirPathAlloc(
         ctx.io,
@@ -103,24 +104,34 @@ pub fn setPath(ctx: *AppContext) !void {
 /// [macOS/Linux]
 /// Creates symbolic link to /usr/local/bin of given application.
 /// 
-pub fn setSymlink(ctx: *AppContext) !void {
-    const target_path = "/usr/local/bin/zinit";
+fn setSymlink(ctx: *AppContext) !void {
+    const target_path = "/usr/bin/zinit";
     const app_domain = try std.process.executableDirPathAlloc(ctx.io, ctx.alloc);
 
-    const app = try std.fs.path.join(ctx.alloc, &.{app_domain, "zinit"});
+    const app_bytes: []u8 = try std.fs.path.join(ctx.alloc, &.{app_domain, "zinit"});
     defer ctx.alloc.free(app_domain);
-    defer ctx.alloc.free(app);
+    defer ctx.alloc.free(app_bytes);
 
-    std.os.linux.symlink(app, target_path) catch |err| {
-        std.debug.print("Unable make an alias: {}\n", .{err});
-        std.debug.print("Run application with superuser rights\n", .{});
-        std.debug.print("Or try [sudo ln -s {s} {}]", .{app, target_path});
-        return ExecError.RootRightsRequired;
-    };
-    try ctx.stdout.print("", .{});
+    const ptr = try ctx.alloc.dupeZ(u8, app_bytes);
+    if (core.os.tag == .linux) {
+        _ = std.os.linux.symlink(ptr, target_path);
+    } else if (core.os.tag == .macos) {
+        const result = try std.process.run(ctx.alloc, ctx.io, .{
+            .argv = &.{"ln", "-sf", ptr, target_path }
+        });
+
+        if (result.term.exited != 0) {
+            std.debug.print("Process exited with {}", .{result.term.exited});
+            return ExecError.ProcessWasFailed;
+        } 
+    }
+}
+fn removeSymlink(ctx: *AppContext) !void {
+    const cwd = std.Io.Dir.cwd();
+    try cwd.deleteFile(ctx.io, "/usr/bin/zinit");
 }
 
-pub fn resetPath(ctx: *AppContext) !void {
+fn resetPath(ctx: *AppContext) !void {
     const alloc = ctx.alloc;
     const target = try std.process.executableDirPathAlloc(
         ctx.io,

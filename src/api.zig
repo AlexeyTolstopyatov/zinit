@@ -258,7 +258,7 @@ fn printHelp(ctx: *AppContext) void {
         \\ $zinit help
         \\     Print this message.
         \\
-        \\ $zinit assoc [set|reset]
+        \\ $zinit assoc [set|reset] (required superuser rights)
         \\     set   -> Install an alias for zinit.
         \\     reset -> Remove an alias.
         \\     
@@ -267,14 +267,9 @@ fn printHelp(ctx: *AppContext) void {
         \\     %PATH%. If last error not equal zero -> prints debug information
         \\     in the [stderr] stream. Sends message "Environment is not updated!"
         \\      
-        \\     (Linux)
-        \\     Creates/Removes a symbolic link of target to/from       
-        \\     [/usr/local/bin].
-        \\ 
-        \\     (macOS)
-        \\     Creates/Removes a symbolic link of target to/from
-        \\     [~/bin]
-        \\
+        \\     (macOS/Linux)
+        \\     Creates/Removes a symbolic link       
+        \\     
         ,
         .{},
     )
