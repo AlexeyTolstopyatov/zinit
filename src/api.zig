@@ -6,12 +6,37 @@
 const this = @This();
 const std = @import("std");
 const os = @import("os.zig");
+const fs = @import("fs.zig");
 
 const string = @import("types.zig").string;
-const Command = @import("types.zig").Command;
 const ParseError = @import("types.zig").ParseError;
-const Ctx = @import("types.zig").Ctx;
-const fs = @import("fs.zig");
+const AppContext = @import("types.zig").AppContext;
+///
+/// Identifies the verb the user typed. Used both as the command string and
+/// as the tag type of `api.Argument`.
+///
+pub const Command = enum {
+    ///
+    /// $ zinit <name> <template> [!|--here] - make a new project.
+    ///
+    Init,
+    ///
+    /// $ zinit path [<path>] - print or set the templates location.
+    ///
+    Location,
+    ///
+    /// $ zinit list - list the available templates.
+    ///
+    List,
+    ///
+    /// $ zinit help - print the header comment
+    ///
+    Help,
+    ///
+    /// $zinit assoc [set|reset]
+    ///
+    Associate,
+};
 
 pub const Argument = union(Command) {
     ///
@@ -167,7 +192,7 @@ pub fn parseArgv(argv: []const string) ParseError!Argument {
 /// Runtime failures use the wider `anyerror` set (I/O, allocator, ...) while
 /// `parseArgv` keeps reporting only `ParseError`.
 ///
-pub fn run(args: Argument, ctx: *Ctx) !void {
+pub fn run(args: Argument, ctx: *AppContext) !void {
     switch (args) {
         .Init => |init| {
             try validateName(init.name);
@@ -182,13 +207,13 @@ pub fn run(args: Argument, ctx: *Ctx) !void {
         .Location => |maybe_path| {
             if (maybe_path) |path| {
                 // TODO: persist `path` as the new templates location (config.zig).
-                try ctx.out.print(
+                try ctx.stdout.print(
                     "Templates location set to {s} (not persisted yet)\n",
                     .{path},
                 );
             } else {
                 const dir = try fs.defaultTemplatesDir(ctx);
-                try ctx.out.print("{s}\n", .{dir});
+                try ctx.stdout.print("{s}\n", .{dir});
             }
         },
         .List => {
@@ -198,7 +223,7 @@ pub fn run(args: Argument, ctx: *Ctx) !void {
             printHelp(ctx);
         },
         .Associate => |set| {
-            try ctx.out.print("Associate: set={}\n", .{set});
+            try ctx.stdout.print("Associate: set={}\n", .{set});
             if (set) {
                 try os.enableAssoc(ctx);
             } else {
@@ -208,9 +233,9 @@ pub fn run(args: Argument, ctx: *Ctx) !void {
     }
 }
 
-fn printHelp(ctx: *Ctx) void {
+fn printHelp(ctx: *AppContext) void {
     // `@"?"` in the text below is the marker zinit substitutes.
-    ctx.out.print(
+    ctx.stdout.print(
         \\ zinit - make Zig projects from templates
         \\
         \\ $zinit <name> <template> [--here|!]
@@ -229,7 +254,6 @@ fn printHelp(ctx: *Ctx) void {
         \\
         \\ $zinit path
         \\     Print where templates are stored.
-        // \\     With <path>:    set the templates location.
         \\
         \\ $zinit help
         \\     Print this message.
@@ -246,14 +270,10 @@ fn printHelp(ctx: *Ctx) void {
         \\     (Linux)
         \\     Creates/Removes a symbolic link of target to/from       
         \\     [/usr/local/bin].
-        \\
-        \\     $app_domain$/zinit ~> /usr/local/bin/&zinit 
         \\ 
         \\     (macOS)
         \\     Creates/Removes a symbolic link of target to/from
         \\     [~/bin]
-        \\
-        \\     $app_domain$/zinit -> ~/bin/&zinit
         \\
         ,
         .{},
@@ -261,14 +281,14 @@ fn printHelp(ctx: *Ctx) void {
         catch unreachable;
 }
 
-fn printTemplates(ctx: *Ctx) !void {
+fn printTemplates(ctx: *AppContext) !void {
     const dir = try fs.defaultTemplatesDir(ctx);
 
     var tdir = std.Io.Dir.cwd()
         .openDir(ctx.io, dir, .{ .iterate = true })
         catch |err| switch (err) {
             error.FileNotFound => {
-                try ctx.out.print(
+                try ctx.stdout.print(
                     "No templates directory ({s}).\n",
                     .{dir},
                 );
@@ -281,14 +301,14 @@ fn printTemplates(ctx: *Ctx) !void {
     var walker = try tdir.walk(ctx.alloc);
     defer walker.deinit();
 
-    try ctx.out.print("Templates in {s}:\n", .{dir});
+    try ctx.stdout.print("Templates in {s}:\n", .{dir});
     var count: usize = 0;
     while (try walker.next(ctx.io)) |entry| {
         // Templates live one level deep; deeper folders belong to a template.
         if (entry.kind == .directory and entry.depth() == 1) {
-            try ctx.out.print("  {s}\n", .{entry.basename});
+            try ctx.stdout.print("  {s}\n", .{entry.basename});
             count += 1;
         }
     }
-    if (count == 0) try ctx.out.print("  (none)\n", .{});
+    if (count == 0) try ctx.stdout.print("  (none)\n", .{});
 }

@@ -5,33 +5,40 @@
 const std = @import("std");
 const core = @import("builtin");
 const windows = @import("std").os.windows;
+const fs = std.fs;
 
 const string = @import("types.zig").string;
-const Ctx = @import("types.zig").Ctx;
+const AppContext = @import("types.zig").AppContext;
 const ExecError = @import("types.zig").ExecError;
 const HWND = @import("std").os.windows.HWND;
-
-const HWND_BROADCAST = @as(HWND, @ptrFromInt(0xFFFF));
-const WM_SETTINGCHANGE = 0x001A;
-const SMTO_ABORTIFHUNG = 0x0002;
-const ENVIRONMENT = "Environment";
 
 ///
 /// Adds the directory that contains the running zinit binary (and therefore
 /// its templates/) to the PATH of the current user.
+/// 
+/// Also prepares application domain (makes /templates sub-directory)
 ///
-pub fn enableAssoc(ctx: *Ctx) !void {
+pub fn enableAssoc(ctx: *AppContext) !void {
     switch (core.os.tag) {
         .windows => try setPath(ctx),
+        .linux => try setSymlink(ctx),
         else => return ExecError.OSNotSupported,
     }
+
+    // install templates dir
+    const app_domain = try std.process.executableDirPathAlloc(ctx.io, ctx.alloc);
+    const templates = try std.fs.path.join(ctx.alloc, &.{ app_domain, "templates" });
+    defer ctx.alloc.free(app_domain);
+    defer ctx.alloc.free(templates);
+    
+    try std.Io.Dir.createDirAbsolute(ctx.io, templates, .default_dir);
 }
 
 ///
 /// Removes the directory that contains the running zinit binary from the
 /// PATH of the current user.
 ///
-pub fn disableAssoc(ctx: *Ctx) !void {
+pub fn disableAssoc(ctx: *AppContext) !void {
     switch (core.os.tag) {
         .windows => try resetPath(ctx),
         else => return ExecError.OSNotSupported,
@@ -42,7 +49,7 @@ pub fn disableAssoc(ctx: *Ctx) !void {
 /// [Windows]
 /// Updates a Win32 exvironment variable %PATH%
 ///
-pub fn setPath(ctx: *Ctx) !void {
+pub fn setPath(ctx: *AppContext) !void {
     const alloc = ctx.alloc;
     const target = try std.process.executableDirPathAlloc(
         ctx.io,
@@ -50,7 +57,7 @@ pub fn setPath(ctx: *Ctx) !void {
     );
     defer alloc.free(target);
 
-    const current_path = ctx.environ_map.get("PATH")
+    const current_path = ctx.environment.get("PATH")
         orelse return ExecError.BadMemoryManagement;
     defer alloc.free(current_path);
 
@@ -86,12 +93,22 @@ pub fn setPath(ctx: *Ctx) !void {
         return ExecError.RootRightsRequired;
     }
 
-    try ctx.out.print(
+    try ctx.stdout.print(
         "Sucess. Restart a session to apply changes?\n",
         .{},
     );
 }
-pub fn resetPath(ctx: *Ctx) !void {
+
+///
+/// [macOS/Linux]
+/// Creates symbolic link to /usr/local/bin of given application.
+/// 
+pub fn setSymlink(ctx: *AppContext) !void {
+    _ = ctx;
+    
+}
+
+pub fn resetPath(ctx: *AppContext) !void {
     const alloc = ctx.alloc;
     const target = try std.process.executableDirPathAlloc(
         ctx.io,
@@ -99,7 +116,7 @@ pub fn resetPath(ctx: *Ctx) !void {
     );
     defer alloc.free(target);
 
-    const current_path = ctx.environ_map.get("PATH") orelse {
+    const current_path = ctx.environment.get("PATH") orelse {
         return ExecError.BadMemoryManagement;
     };
 
@@ -132,7 +149,7 @@ pub fn resetPath(ctx: *Ctx) !void {
         std.debug.print("DEBUG: {s}\n", .{result.stderr});
         return ExecError.RootRightsRequired;
     }
-    try ctx.out.print("Success. Restart a session.\n", .{});
+    try ctx.stdout.print("Success. Restart a session to apply changes!\n", .{});
 }
 
 fn removeFirstPattern(

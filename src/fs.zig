@@ -60,7 +60,7 @@
 const std = @import("std");
 
 const string = @import("types.zig").string;
-const Ctx = @import("types.zig").Ctx;
+const AppContext = @import("types.zig").AppContext;
 
 ///
 /// Sub-directory (inside the executable's directory) that holds the templates:
@@ -73,7 +73,7 @@ pub const ZIG_QUESTION: string = "@\"?\"";
 pub const ZON_QUESTION: string = ".?";
 
 /// Default templates location: `<dir of the executable>/templates`.
-pub fn defaultTemplatesDir(ctx: *Ctx) ![]u8 {
+pub fn defaultTemplatesDir(ctx: *AppContext) ![]u8 {
     const exe_dir = try std.process.executableDirPathAlloc(
         ctx.io,
         ctx.alloc,
@@ -113,7 +113,7 @@ fn replaceQuestion(
 /// Copies a single `.zig` file from the template into the destination,
 /// substituting markers in its contents.
 fn copyFile(
-    ctx: *Ctx,
+    ctx: *AppContext,
     src_dir: std.Io.Dir,
     src_path: string,
     dst_dir: std.Io.Dir,
@@ -153,7 +153,7 @@ fn copyFile(
 /// Inside every copied `.zig` file the marker `@"?"` is replaced with `name`.
 ///
 pub fn makeProject(
-    ctx: *Ctx,
+    ctx: *AppContext,
     name: string,
     template: string,
     here: bool,
@@ -231,12 +231,12 @@ pub fn makeProject(
     }
 
     if (here) {
-        try ctx.out.print(
+        try ctx.stdout.print(
             "Created '{s}' in the current directory ({d} files)\n",
             .{ name, files },
         );
     } else {
-        try ctx.out.print(
+        try ctx.stdout.print(
             "Created './{s}' ({d} files)\n",
             .{ name, files },
         );
