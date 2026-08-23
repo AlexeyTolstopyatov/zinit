@@ -104,8 +104,20 @@ pub fn setPath(ctx: *AppContext) !void {
 /// Creates symbolic link to /usr/local/bin of given application.
 /// 
 pub fn setSymlink(ctx: *AppContext) !void {
-    _ = ctx;
-    
+    const target_path = "/usr/local/bin/zinit";
+    const app_domain = try std.process.executableDirPathAlloc(ctx.io, ctx.alloc);
+
+    const app = try std.fs.path.join(ctx.alloc, &.{app_domain, "zinit"});
+    defer ctx.alloc.free(app_domain);
+    defer ctx.alloc.free(app);
+
+    std.os.linux.symlink(app, target_path) catch |err| {
+        std.debug.print("Unable make an alias: {}\n", .{err});
+        std.debug.print("Run application with superuser rights\n", .{});
+        std.debug.print("Or try [sudo ln -s {s} {}]", .{app, target_path});
+        return ExecError.RootRightsRequired;
+    };
+    try ctx.stdout.print("", .{});
 }
 
 pub fn resetPath(ctx: *AppContext) !void {
