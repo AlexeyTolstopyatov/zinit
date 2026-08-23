@@ -88,13 +88,20 @@ pub fn defaultTemplatesDir(ctx: *Ctx) ![]u8 {
 /// Replaces every `template_marker` in `content` with `name`.
 /// Returns the original slice unchanged when there is nothing to replace!
 ///
-fn replaceQuestion(content: string, name: string, alloc: std.mem.Allocator, question: string) !string {
+fn replaceQuestion(
+    content: string,
+    name: string,
+    alloc: std.mem.Allocator,
+    question: string,
+) !string {
     if (std.mem.indexOf(u8, content, question) == null)
         return content;
 
     var buf: std.ArrayList(u8) = .empty;
     var start: usize = 0;
-    while (std.mem.indexOfPos(u8, content, start, ZIG_QUESTION)) |at| {
+    while (
+        std.mem.indexOfPos(u8, content, start, ZIG_QUESTION)
+    ) |at| {
         try buf.appendSlice(alloc, content[start..at]);
         try buf.appendSlice(alloc, name);
         start = at + ZIG_QUESTION.len;
@@ -119,7 +126,12 @@ fn copyFile(
         ctx.alloc,
         .unlimited,
     );
-    const proceed_bytes: string = try replaceQuestion(zig_bytes, name, ctx.alloc, question);
+    const proceed_bytes: string = try replaceQuestion(
+        zig_bytes,
+        name,
+        ctx.alloc,
+        question,
+    );
 
     var file = try dst_dir.createFile(
         ctx.io,
@@ -160,16 +172,13 @@ pub fn makeProject(
     if (here) {
         dst_dir = std.Io.Dir.cwd();
     } else {
-        try std.Io.Dir
-            .cwd()
-            .createDirPath(ctx.io, name);
-        dst_dir = try std.Io.Dir
-            .cwd()
+        try std.Io.Dir.cwd().createDirPath(ctx.io, name);
+        dst_dir = try std.Io.Dir.cwd()
             .openDir(
-            ctx.io,
-            name,
-            .{ .access_sub_paths = true },
-        );
+                ctx.io,
+                name,
+                .{ .access_sub_paths = true },
+            );
         owns_dst = true;
     }
     defer if (owns_dst) dst_dir.close(ctx.io);
@@ -186,9 +195,25 @@ pub fn makeProject(
             ),
             .file => {
                 if (std.mem.endsWith(u8, entry.path, ".zig")) {
-                    try copyFile(ctx, tdir, entry.path, dst_dir, name, ZIG_QUESTION);
-                } else if (std.mem.endsWith(u8, entry.path, ".zon")) {
-                    try copyFile(ctx, tdir, entry.path, dst_dir, name, ZON_QUESTION);
+                    try copyFile(
+                        ctx,
+                        tdir,
+                        entry.path,
+                        dst_dir,
+                        name,
+                        ZIG_QUESTION,
+                    );
+                } else if (
+                    std.mem.endsWith(u8, entry.path, ".zon")
+                ) {
+                    try copyFile(
+                        ctx,
+                        tdir,
+                        entry.path,
+                        dst_dir,
+                        name,
+                        ZON_QUESTION,
+                    );
                 } else {
                     try std.Io.Dir.copyFile(
                         tdir,

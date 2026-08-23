@@ -71,8 +71,12 @@ const bad_chars = [_]u8{
 /// Applies to folders/files
 ///
 fn trimExtension(name: string) string {
-    var end = (std.mem.indexOfScalar(u8, name, '.') orelse name.len);
-    while (end > 0 and (name[end - 1] == '.' or name[end - 1] == ' ')) {
+    var end = (std.mem.indexOfScalar(u8, name, '.')
+        orelse name.len);
+    while (
+        end > 0
+            and (name[end - 1] == '.' or name[end - 1] == ' ')
+    ) {
         end -= 1;
     }
     return name[0..end];
@@ -88,7 +92,8 @@ pub fn isDosDevice(name: string) bool {
         if (!std.ascii.eqlIgnoreCase(stem[0..alias.len], alias))
             continue;
         const rest = stem[alias.len..];
-        return rest.len == 0 or (rest.len == 1 and std.ascii.isDigit(rest[0]));
+        return rest.len == 0
+            or (rest.len == 1 and std.ascii.isDigit(rest[0]));
     }
     return false;
 }
@@ -141,7 +146,9 @@ pub fn parseArgv(argv: []const string) ParseError!Argument {
     // $zinit <name> <template> [!|--here]
     if (argv.len < 2) return error.BadCommand;
 
-    const here = argv.len >= 3 and (std.mem.eql(u8, argv[2], "!") or std.mem.eql(u8, argv[2], "--here"));
+    const here = argv.len >= 3
+        and (std.mem.eql(u8, argv[2], "!")
+            or std.mem.eql(u8, argv[2], "--here"));
 
     try validateName(argv[0]);
 
@@ -248,25 +255,27 @@ fn printHelp(ctx: *Ctx) void {
         \\
         \\     $app_domain$/zinit -> ~/bin/&zinit
         \\
-    ,
+        ,
         .{},
-    ) catch unreachable;
+    )
+        catch unreachable;
 }
 
 fn printTemplates(ctx: *Ctx) !void {
     const dir = try fs.defaultTemplatesDir(ctx);
 
     var tdir = std.Io.Dir.cwd()
-        .openDir(ctx.io, dir, .{ .iterate = true }) catch |err| switch (err) {
-        error.FileNotFound => {
-            try ctx.out.print(
-                "No templates directory ({s}).\n",
-                .{dir},
-            );
-            return;
-        },
-        else => return err,
-    };
+        .openDir(ctx.io, dir, .{ .iterate = true })
+        catch |err| switch (err) {
+            error.FileNotFound => {
+                try ctx.out.print(
+                    "No templates directory ({s}).\n",
+                    .{dir},
+                );
+                return;
+            },
+            else => return err,
+        };
     defer tdir.close(ctx.io);
 
     var walker = try tdir.walk(ctx.alloc);

@@ -49,7 +49,12 @@ pub fn main(init: std.process.Init) !void {
     var stdbuf: [1024]u8 = undefined;
     var stdout = std.Io.File.stdout().writer(init.io, &stdbuf);
 
-    var ctx: Ctx = .{ .io = init.io, .alloc = init.arena.allocator(), .out = &stdout.interface, .environ_map = init.environ_map };
+    var ctx: Ctx = .{
+        .io = init.io,
+        .alloc = init.arena.allocator(),
+        .out = &stdout.interface,
+        .environ_map = init.environ_map,
+    };
 
     const argument = api.parseArgv(arguments) catch |err| {
         std.debug.print("zinit: {s}\n", .{@errorName(err)});

@@ -44,52 +44,90 @@ pub fn disableAssoc(ctx: *Ctx) !void {
 ///
 pub fn setPath(ctx: *Ctx) !void {
     const alloc = ctx.alloc;
-    const target = try std.process.executableDirPathAlloc(ctx.io, ctx.alloc);
+    const target = try std.process.executableDirPathAlloc(
+        ctx.io,
+        ctx.alloc,
+    );
     defer alloc.free(target);
 
-    const current_path = ctx.environ_map.get("PATH") orelse return ExecError.BadMemoryManagement;
+    const current_path = ctx.environ_map.get("PATH")
+        orelse return ExecError.BadMemoryManagement;
     defer alloc.free(current_path);
 
-    const new_path = try std.fmt.allocPrint(alloc, "{s};{s}", .{ current_path, target });
+    const new_path = try std.fmt.allocPrint(
+        alloc,
+        "{s};{s}",
+        .{ current_path, target },
+    );
     defer alloc.free(new_path);
 
     // reg add HKCU\Environment /v PATH /t REG_EXPAND_SZ /d "new_path" /f
-    const result = try std.process.run(alloc, ctx.io, .{
-        .argv = &.{
-            "reg",           "add",  "HKCU\\Environment",
-            "/v",            "PATH", "/t",
-            "REG_EXPAND_SZ", "/d",   new_path,
-            "/f",
+    const result = try std.process.run(
+        alloc,
+        ctx.io,
+        .{
+            .argv = &.{
+                "reg",
+                "add",
+                "HKCU\\Environment",
+                "/v",
+                "PATH",
+                "/t",
+                "REG_EXPAND_SZ",
+                "/d",
+                new_path,
+                "/f",
+            },
         },
-    });
+    );
     // reg query HKCU\Environment /v PATH
     if (result.term.exited != 0) {
         std.debug.print("DEBUG: {s}\n", .{result.stderr});
         return ExecError.RootRightsRequired;
     }
 
-    try ctx.out.print("Sucess. Restart a session to apply changes?\n", .{});
+    try ctx.out.print(
+        "Sucess. Restart a session to apply changes?\n",
+        .{},
+    );
 }
 pub fn resetPath(ctx: *Ctx) !void {
     const alloc = ctx.alloc;
-    const target = try std.process.executableDirPathAlloc(ctx.io, ctx.alloc);
+    const target = try std.process.executableDirPathAlloc(
+        ctx.io,
+        ctx.alloc,
+    );
     defer alloc.free(target);
 
     const current_path = ctx.environ_map.get("PATH") orelse {
         return ExecError.BadMemoryManagement;
     };
 
-    const cleaned = try removeFirstPattern(alloc, current_path, target);
+    const cleaned = try removeFirstPattern(
+        alloc,
+        current_path,
+        target,
+    );
     defer alloc.free(cleaned);
 
-    const result = try std.process.run(alloc, ctx.io, .{
-        .argv = &.{
-            "reg",           "add",  "HKCU\\Environment",
-            "/v",            "PATH", "/t",
-            "REG_EXPAND_SZ", "/d",   cleaned,
-            "/f",
+    const result = try std.process.run(
+        alloc,
+        ctx.io,
+        .{
+            .argv = &.{
+                "reg",
+                "add",
+                "HKCU\\Environment",
+                "/v",
+                "PATH",
+                "/t",
+                "REG_EXPAND_SZ",
+                "/d",
+                cleaned,
+                "/f",
+            },
         },
-    });
+    );
     if (result.term.exited != 0) {
         std.debug.print("DEBUG: {s}\n", .{result.stderr});
         return ExecError.RootRightsRequired;
@@ -97,14 +135,21 @@ pub fn resetPath(ctx: *Ctx) !void {
     try ctx.out.print("Success. Restart a session.\n", .{});
 }
 
-fn removeFirstPattern(allocator: std.mem.Allocator, data: string, pattern: string) ![]u8 {
+fn removeFirstPattern(
+    allocator: std.mem.Allocator,
+    data: string,
+    pattern: string,
+) ![]u8 {
     const pos = std.mem.indexOf(u8, data, pattern) orelse {
         return try allocator.dupe(u8, data);
     };
-    const result = try allocator.alloc(u8, data.len - pattern.len);
+    const result = try allocator.alloc(
+        u8,
+        data.len - pattern.len,
+    );
 
     @memcpy(result[0..pos], data[0..pos]);
-    @memcpy(result[pos..], data[pos + pattern.len ..]);
+    @memcpy(result[pos..], data[pos + pattern.len..]);
 
     return result;
 }
