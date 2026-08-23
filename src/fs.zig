@@ -1,44 +1,44 @@
 //!
 //! CoffeeLake (C) 2026-*
-//! 
+//!
 //! Filesystem module is used to resolve the templates location and expanding
 //! a template directory into a project.
-//! 
+//!
 //! Template structure is a simple directory (d---/---) with nested files.
 //! Files in the directory checks only if extension of them are equals .zig/.zon.
 //! Markdown/asciidoc files and other information will be ignored.
 //! C source bindings in the project will be ignored.
-//! 
-//! Directory layout: 
+//!
+//! Directory layout:
 //! /mini-pkg
 //!     /src
 //!         main.zig
 //!         root.zig
 //!     build.zig
 //!     builf.zig.zon
-//! 
+//!
 //! main.zig layout:
-//! 
+//!
 //! ```zig
 //! const std = @import("std");
 //! const @"?" = @import("root.zig");
-//! 
+//!
 //! pub fn main(init: std.process.init) !void {
 //!     const argv = &init.minimal.args.toSlice();
 //!     // Don't even think about it, write it all yourself!
 //! }
-//! 
+//!
 //! test "use your mind" {
 //!     // Write tests yourself too.
 //! }
 //! ```
-//! 
+//!
 //! Zig files contains [@"?"] strings. The [project_name] will be placed in the file
-//! instead of incoming question string. 
-//! 
-//! The Zig Object Notation (??) files magic word is [.?]. 
+//! instead of incoming question string.
+//!
+//! The Zig Object Notation (??) files magic word is [.?].
 //! It will be replaced by [project_name] too.
-//! 
+//!
 //! build.zig.zon layout:
 //! ```zon
 //! .{
@@ -53,19 +53,19 @@
 //!    },
 //! }
 //! ```
-//! 
+//!
 //! [zinit] doesn't work with any kind of archives. (@v0.16.)
-//! 
+//!
 
 const std = @import("std");
 
 const string = @import("types.zig").string;
 const Ctx = @import("types.zig").Ctx;
 
-/// 
+///
 /// Sub-directory (inside the executable's directory) that holds the templates:
 /// `%app%/templates` from the help text.
-/// 
+///
 pub const templates_dir_name: string = "templates";
 
 /// The one special string replaced inside `.zig` files with the project name.
@@ -84,24 +84,17 @@ pub fn defaultTemplatesDir(ctx: *Ctx) ![]u8 {
     );
 }
 
-/// 
+///
 /// Replaces every `template_marker` in `content` with `name`.
 /// Returns the original slice unchanged when there is nothing to replace!
-/// 
-fn replaceQuestion(
-    content: string,
-    name: string,
-    alloc: std.mem.Allocator,
-    question: string
-) !string {
+///
+fn replaceQuestion(content: string, name: string, alloc: std.mem.Allocator, question: string) !string {
     if (std.mem.indexOf(u8, content, question) == null)
         return content;
 
     var buf: std.ArrayList(u8) = .empty;
     var start: usize = 0;
-    while (
-        std.mem.indexOfPos(u8, content, start, ZIG_QUESTION)
-    ) |at| {
+    while (std.mem.indexOfPos(u8, content, start, ZIG_QUESTION)) |at| {
         try buf.appendSlice(alloc, content[start..at]);
         try buf.appendSlice(alloc, name);
         start = at + ZIG_QUESTION.len;
@@ -126,12 +119,7 @@ fn copyFile(
         ctx.alloc,
         .unlimited,
     );
-    const proceed_bytes: string = try replaceQuestion(
-        zig_bytes, 
-        name, 
-        ctx.alloc, 
-        question
-    );
+    const proceed_bytes: string = try replaceQuestion(zig_bytes, name, ctx.alloc, question);
 
     var file = try dst_dir.createFile(
         ctx.io,
@@ -144,14 +132,14 @@ fn copyFile(
     try file.writePositionalAll(ctx.io, proceed_bytes, 0);
 }
 
-/// 
+///
 /// Turns a template into a project.
 /// Depending on a [here] flag the project directory will be moved
 /// into current working directory (=true) or firstly the project directory
-/// will be made then template containment will be copied into. (=false) 
-/// 
+/// will be made then template containment will be copied into. (=false)
+///
 /// Inside every copied `.zig` file the marker `@"?"` is replaced with `name`.
-/// 
+///
 pub fn makeProject(
     ctx: *Ctx,
     name: string,
@@ -178,10 +166,10 @@ pub fn makeProject(
         dst_dir = try std.Io.Dir
             .cwd()
             .openDir(
-                ctx.io,
-                name,
-                .{ .access_sub_paths = true },
-            );
+            ctx.io,
+            name,
+            .{ .access_sub_paths = true },
+        );
         owns_dst = true;
     }
     defer if (owns_dst) dst_dir.close(ctx.io);
@@ -198,26 +186,10 @@ pub fn makeProject(
             ),
             .file => {
                 if (std.mem.endsWith(u8, entry.path, ".zig")) {
-                    try copyFile(
-                        ctx,
-                        tdir,
-                        entry.path,
-                        dst_dir,
-                        name,
-                        ZIG_QUESTION
-                    );
-                }
-                else if (std.mem.endsWith(u8, entry.path, ".zon")) {
-                    try copyFile(
-                        ctx,
-                        tdir,
-                        entry.path,
-                        dst_dir,
-                        name,
-                        ZON_QUESTION
-                    );
-                }
-                else {
+                    try copyFile(ctx, tdir, entry.path, dst_dir, name, ZIG_QUESTION);
+                } else if (std.mem.endsWith(u8, entry.path, ".zon")) {
+                    try copyFile(ctx, tdir, entry.path, dst_dir, name, ZON_QUESTION);
+                } else {
                     try std.Io.Dir.copyFile(
                         tdir,
                         entry.path,

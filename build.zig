@@ -182,30 +182,3 @@ fn buildRelease(b: *std.Build) void {
     b.installArtifact(elf64);
     b.installArtifact(macho);
 }
-
-fn assocWindows(
-    b: *std.Build,
-    command: enum { enabled, disabled },
-) void {
-    // Associate compiled win32 binary with "zinit"
-    switch (command) {
-        .enabled => {
-            // Better to use batch commands instead of Powershell
-            // But anyway I can set alias to the output file
-            // b.run(&{ "Set-Alias" });
-        },
-        .disabled => {},
-    }
-    _ = b;
-}
-
-fn assocLinux(
-    b: *std.Build,
-    command: enum { enabled, disabled },
-) void {
-    // .enabled -> Move compiled binary to /usr/bin catalog
-    _ = b;
-    _ = command;
-
-    // .disabled -> Remove compiled binary from /usr/bin catalog.
-}
