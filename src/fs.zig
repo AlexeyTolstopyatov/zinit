@@ -70,7 +70,7 @@ pub const templates_dir_name: string = "templates";
 
 /// The one special string replaced inside `.zig` files with the project name.
 pub const ZIG_QUESTION: string = "@\"?\"";
-pub const ZON_QUESTION: string = ".?";
+pub const ZON_QUESTION: string = "?";
 
 /// Default templates location: `<dir of the executable>/templates`.
 pub fn defaultTemplatesDir(ctx: *AppContext) ![]u8 {
